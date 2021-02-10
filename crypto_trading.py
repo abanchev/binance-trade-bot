@@ -118,14 +118,14 @@ def buy_alt(client, alt_symbol, crypto_symbol):
             ticks[alt_symbol] = filt['stepSize'].find('1') - 2
             break
 
-    order_quantity = ((math.floor(get_currency_balance(client, crypto_symbol) *
-                                  10**ticks[alt_symbol] / get_market_ticker_price(client, alt_symbol+crypto_symbol))/float(10**ticks[alt_symbol])))
-    logger.info('BUY QTY %s', order_quantity)
-
     # Try to buy until successful
     order = None
     while order is None:
         try:
+            order_quantity = ((math.floor(get_currency_balance(client, crypto_symbol) *
+                                          10**ticks[alt_symbol] / get_market_ticker_price(client, alt_symbol+crypto_symbol))/float(10**ticks[alt_symbol])))
+            logger.info('BUY QTY %s', order_quantity)
+            
             order = client.order_limit_buy(
                 symbol=alt_symbol + crypto_symbol,
                 quantity=order_quantity,
@@ -147,9 +147,13 @@ def buy_alt(client, alt_symbol, crypto_symbol):
             time.sleep(10)
 
     while stat[u'status'] != 'FILLED':
-        stat = client.get_order(
-            symbol=alt_symbol+crypto_symbol, orderId=order[u'orderId'])
-        time.sleep(1)
+        try:
+            stat = client.get_order(
+                symbol=alt_symbol+crypto_symbol, orderId=order[u'orderId'])
+            time.sleep(1)
+        except BinanceAPIException as e:
+            logger.info(e)
+            time.sleep(1)
 
     logger.info('Bought %s', alt_symbol)
 
@@ -235,9 +239,10 @@ def update_trade_threshold(client):
     global g_state
     current_coin_price = float(get_market_ticker_price(
         client,  g_state.current_coin + 'USDT'))
-    for coin_dict in g_state.coin_table.copy():
-        g_state.coin_table[coin_dict][g_state.current_coin] = float(get_market_ticker_price(
-            client, coin_dict + 'USDT'))/current_coin_price
+    for coin_dict in supported_coin_list:
+        if g_state.current_coin != coin_dict:
+            g_state.coin_table[coin_dict][g_state.current_coin] = float(get_market_ticker_price(
+                client, coin_dict + 'USDT'))/current_coin_price
     with open(g_state._table_backup_file, "w") as backup_file:
         json.dump(g_state.coin_table, backup_file)
 
