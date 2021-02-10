@@ -122,14 +122,17 @@ def buy_alt(client, alt_symbol, crypto_symbol):
     order = None
     while order is None:
         try:
+            new_coin_price = float(get_market_ticker_price(
+                client, alt_symbol+crypto_symbol))
+            # calc new quantity if something failed
             order_quantity = ((math.floor(get_currency_balance(client, crypto_symbol) *
-                                          10**ticks[alt_symbol] / get_market_ticker_price(client, alt_symbol+crypto_symbol))/float(10**ticks[alt_symbol])))
+                                          10**ticks[alt_symbol] / new_coin_price)/float(10**ticks[alt_symbol])))
             logger.info('BUY QTY %s', order_quantity)
-            
+
             order = client.order_limit_buy(
                 symbol=alt_symbol + crypto_symbol,
                 quantity=order_quantity,
-                price=get_market_ticker_price(client, alt_symbol+crypto_symbol)
+                price=new_coin_price
             )
             logger.info(order)
         except BinanceAPIException as e:
@@ -273,9 +276,11 @@ def scout(client, transaction_fee=0.001, multiplier=5):
     curr_coin_price = float(get_market_ticker_price(
         client, g_state.current_coin + 'USDT'))
     for optional_coin in [coin for coin in g_state.coin_table[g_state.current_coin].copy() if coin != g_state.current_coin]:
+        
+        optional_coin_price = float(
+            get_market_ticker_price(client, optional_coin + 'USDT'))
         # Obtain (current coin)/(optional coin)
-        coin_opt_coin_ratio = curr_coin_price / \
-            float(get_market_ticker_price(client, optional_coin + 'USDT'))
+        coin_opt_coin_ratio = curr_coin_price / optional_coin_price
 
         if (coin_opt_coin_ratio - transaction_fee * multiplier * coin_opt_coin_ratio) > g_state.coin_table[g_state.current_coin][optional_coin]:
             logger.info('Will be jumping from {0} to {1}'.format(
